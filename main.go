@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -18,7 +18,7 @@ func main() {
 
 	api := http.Server{
 		Addr:         "localhost:8000",
-		Handler:      http.HandlerFunc(Echo),
+		Handler:      http.HandlerFunc(ListProducts),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 	}
@@ -67,7 +67,30 @@ func main() {
 	}
 }
 
-// Echo tells you about the request you made
-func Echo(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "You asked to", r.Method, r.URL.Path)
+// Product is what we sell
+type Product struct {
+	Name     string `json:"name"`
+	Cost     int    `json:"cost"`
+	Quantity int    `json:"quantity"`
+}
+
+// ListProducts sends a list of Products to the client as json response
+func ListProducts(w http.ResponseWriter, r *http.Request) {
+	products := []Product{
+		{Name: "toy car", Cost: 45, Quantity: 44},
+		{Name: "Doll", Cost: 31, Quantity: 23},
+	}
+
+	data, err := json.Marshal(products)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Println("error marshalling data", err)
+		return
+	}
+
+	w.Header().Set("content-type", "application/json")
+	if _, err := w.Write(data); err != nil {
+		log.Println("error writing", err)
+	}
 }
