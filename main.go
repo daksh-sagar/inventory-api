@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"log"
 	"net/http"
 	"net/url"
@@ -10,6 +11,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/daksh-sagar/garagesale/schema"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -28,9 +31,28 @@ func main() {
 
 	defer db.Close()
 
+	flag.Parse()
+
+	switch flag.Arg(0) {
+	case "migrate":
+		if err := schema.Migrate(db); err != nil {
+			log.Fatal("applying migrations", err)
+		}
+		log.Println("Migrations complete")
+		return
+	case "seed":
+		if err := schema.Seed(db); err != nil {
+			log.Fatal("applying seed data", err)
+		}
+		log.Println("Seed data inserted")
+		return
+	}
+
+	ps := ProductService{db: db}
+
 	api := http.Server{
 		Addr:         "localhost:8000",
-		Handler:      http.HandlerFunc(ListProducts),
+		Handler:      http.HandlerFunc(ps.List),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 	}
@@ -86,7 +108,7 @@ func openDB() (*sqlx.DB, error) {
 
 	u := url.URL{
 		Scheme:   "postgres",
-		User:     url.UserPassword("postgres", "postgres"),
+		User:     url.UserPassword("postgres", "root"),
 		Host:     "localhost",
 		Path:     "postgres",
 		RawQuery: q.Encode(),
@@ -97,16 +119,28 @@ func openDB() (*sqlx.DB, error) {
 
 // Product is what we sell
 type Product struct {
-	Name     string `json:"name"`
-	Cost     int    `json:"cost"`
-	Quantity int    `json:"quantity"`
+	ID          string    `db:"product_id" json:"id"`
+	Name        string    `db:"name" json:"name"`
+	Cost        int       `db:"cost" json:"cost"`
+	Quantity    int       `db:"quantity" json:"quantity"`
+	DateCreated time.Time `db:"date_created" json:"dateCreated"`
+	DateUpdated time.Time `db:"date_updated" json:"dateUpdated"`
 }
 
-// ListProducts sends a list of Products to the client as json response
-func ListProducts(w http.ResponseWriter, r *http.Request) {
-	products := []Product{
-		{Name: "toy car", Cost: 45, Quantity: 44},
-		{Name: "Doll", Cost: 31, Quantity: 23},
+// ProductService has handler methods
+type ProductService struct {
+	db *sqlx.DB
+}
+
+// List sends a list of Products to the client as json response
+func (p *ProductService) List(w http.ResponseWriter, r *http.Request) {
+	products := []Product{}
+
+	const q = `SELECT * FROM products`
+	if err := p.db.Select(&products, q); err != nil {
+		log.Printf("error: selecting products: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	data, err := json.Marshal(products)
