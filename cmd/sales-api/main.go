@@ -11,17 +11,24 @@ import (
 
 	"github.com/daksh-sagar/garagesale/cmd/sales-api/internal/handlers"
 	"github.com/daksh-sagar/garagesale/internal/platform/database"
+	"github.com/pkg/errors"
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Println("shutting down", "error:", err)
+		os.Exit(1)
+	}
+}
 
+func run() error {
 	log.Printf("main : Started")
 	defer log.Println("main : Completed")
 
 	db, err := database.Open()
 
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "connecting to DB")
 	}
 
 	defer db.Close()
@@ -56,10 +63,10 @@ func main() {
 	// Blocking main and waiting for shutdown.
 	select {
 	case err := <-serverErrors:
-		log.Fatalf("error: listening and serving: %s", err)
+		return errors.Wrap(err, "error: listening and serving")
 
 	case <-shutdown:
-		log.Println("main : Start shutdown")
+		log.Println("main: Start shutdown")
 
 		// Give outstanding requests a deadline for completion.
 		const timeout = 5 * time.Second
@@ -74,7 +81,9 @@ func main() {
 		}
 
 		if err != nil {
-			log.Fatalf("main : could not stop server gracefully : %v", err)
+			return errors.Wrap(err, "main : could not stop server gracefully")
 		}
 	}
+
+	return nil
 }
