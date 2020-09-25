@@ -22,6 +22,7 @@ func main() {
 }
 
 func run() error {
+	log := log.New(os.Stdout, "sales: ", log.LstdFlags)
 	log.Printf("main : Started")
 	defer log.Println("main : Completed")
 
@@ -33,7 +34,7 @@ func run() error {
 
 	defer db.Close()
 
-	ps := handlers.Product{DB: db}
+	ps := handlers.Product{DB: db, Log: log}
 
 	api := http.Server{
 		Addr:         "localhost:8000",

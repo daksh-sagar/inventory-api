@@ -11,7 +11,8 @@ import (
 
 // Product has handler methods
 type Product struct {
-	DB *sqlx.DB
+	DB  *sqlx.DB
+	Log *log.Logger
 }
 
 // List sends a list of Products to the client as json response
@@ -20,7 +21,7 @@ func (p *Product) List(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Println("error fetching products", err)
+		p.Log.Println("error fetching products", err)
 		return
 	}
 
@@ -28,12 +29,12 @@ func (p *Product) List(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Println("error marshalling data", err)
+		p.Log.Println("error marshalling data", err)
 		return
 	}
 
 	w.Header().Set("content-type", "application/json")
 	if _, err := w.Write(data); err != nil {
-		log.Println("error writing", err)
+		p.Log.Println("error writing", err)
 	}
 }
