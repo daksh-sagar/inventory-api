@@ -34,11 +34,9 @@ func run() error {
 
 	defer db.Close()
 
-	ps := handlers.Product{DB: db, Log: log}
-
-	api := http.Server{
+	api := &http.Server{
 		Addr:         "localhost:8000",
-		Handler:      http.HandlerFunc(ps.List),
+		Handler:      handlers.API(log, db),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 	}
