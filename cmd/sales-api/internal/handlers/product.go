@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
+	"github.com/daksh-sagar/garagesale/internal/platform/web"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi"
 
@@ -27,17 +28,9 @@ func (p *Product) List(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	data, err := json.Marshal(products)
-
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		p.Log.Println("error marshalling data", err)
+	if err := web.Respond(w, products, http.StatusOK); err != nil {
+		p.Log.Println("error responding", err)
 		return
-	}
-
-	w.Header().Set("content-type", "application/json")
-	if _, err := w.Write(data); err != nil {
-		p.Log.Println("error writing", err)
 	}
 }
 
@@ -52,16 +45,31 @@ func (p *Product) Retrieve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := json.Marshal(prod)
+	if err := web.Respond(w, prod, http.StatusOK); err != nil {
+		p.Log.Println("error responding", err)
+		return
+	}
+}
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		p.Log.Println("error marshalling data", err)
+// Create creates a product and sends the created product to the client
+func (p *Product) Create(w http.ResponseWriter, r *http.Request) {
+	var np product.NewProduct
+	if err := web.Decode(r, &np); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		p.Log.Println(err)
 		return
 	}
 
-	w.Header().Set("content-type", "application/json")
-	if _, err := w.Write(data); err != nil {
-		p.Log.Println("error writing", err)
+	prod, err := product.Create(p.DB, &np, time.Now())
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		p.Log.Println("error creating product", err)
+		return
+	}
+
+	if err := web.Respond(w, prod, http.StatusCreated); err != nil {
+		p.Log.Println("error responding", err)
+		return
 	}
 }
