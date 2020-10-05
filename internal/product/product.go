@@ -1,6 +1,7 @@
 package product
 
 import (
+	"context"
 	"database/sql"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -14,11 +15,11 @@ var (
 )
 
 // List return all products
-func List(db *sqlx.DB) ([]Product, error) {
+func List(ctx context.Context, db *sqlx.DB) ([]Product, error) {
 	products := []Product{}
 
 	const q = `SELECT * FROM products`
-	if err := db.Select(&products, q); err != nil {
+	if err := db.SelectContext(ctx, &products, q); err != nil {
 		return nil, err
 	}
 
@@ -26,14 +27,14 @@ func List(db *sqlx.DB) ([]Product, error) {
 }
 
 // Retrieve returns a single product
-func Retrieve(db *sqlx.DB, id string) (*Product, error) {
+func Retrieve(ctx context.Context, db *sqlx.DB, id string) (*Product, error) {
 	if _, err := uuid.Parse(id); err != nil {
 		return nil, ErrInvalidID
 	}
 	var p Product
 	const q = `SELECT * FROM products WHERE product_id = $1`
 
-	if err := db.Get(&p, q, id); err != nil {
+	if err := db.GetContext(ctx, &p, q, id); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNotFound
 		}
@@ -44,7 +45,7 @@ func Retrieve(db *sqlx.DB, id string) (*Product, error) {
 }
 
 // Create creates a new Product
-func Create(db *sqlx.DB, np *NewProduct, now time.Time) (*Product, error) {
+func Create(ctx context.Context, db *sqlx.DB, np *NewProduct, now time.Time) (*Product, error) {
 	p := Product{
 		ID:          uuid.New().String(),
 		Name:        np.Name,
@@ -58,7 +59,7 @@ func Create(db *sqlx.DB, np *NewProduct, now time.Time) (*Product, error) {
 		(product_id, name, cost, quantity, date_created, date_updated)
 		VALUES ($1, $2, $3, $4, $5, $6)`
 
-	if _, err := db.Exec(q, p.ID, p.Name, p.Cost, p.Quantity, p.DateCreated, p.DateUpdated); err != nil {
+	if _, err := db.ExecContext(ctx, q, p.ID, p.Name, p.Cost, p.Quantity, p.DateCreated, p.DateUpdated); err != nil {
 		return nil, errors.Wrapf(err, "inserting product: %v", *np)
 	}
 
