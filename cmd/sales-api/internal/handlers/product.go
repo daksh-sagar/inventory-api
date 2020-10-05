@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/daksh-sagar/garagesale/internal/platform/web"
+	"github.com/pkg/errors"
 	"log"
 	"net/http"
 	"time"
@@ -19,57 +20,48 @@ type Product struct {
 }
 
 // List sends a list of Products to the client as json response
-func (p *Product) List(w http.ResponseWriter, _ *http.Request) {
+func (p *Product) List(w http.ResponseWriter, _ *http.Request) error {
 	products, err := product.List(p.DB)
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		p.Log.Println("error fetching products", err)
-		return
+		return err
 	}
 
-	if err := web.Respond(w, products, http.StatusOK); err != nil {
-		p.Log.Println("error responding", err)
-		return
-	}
+	return web.Respond(w, products, http.StatusOK)
 }
 
 // Retrieve sends a single Product to the client as json response
-func (p *Product) Retrieve(w http.ResponseWriter, r *http.Request) {
+func (p *Product) Retrieve(w http.ResponseWriter, r *http.Request) error {
 	id := chi.URLParam(r, "id")
 	prod, err := product.Retrieve(p.DB, id)
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		p.Log.Println("error fetching product", err)
-		return
+		switch err {
+		case product.ErrNotFound:
+			return web.NewRequestError(err, http.StatusNotFound)
+		case product.ErrInvalidID:
+			return web.NewRequestError(err, http.StatusBadRequest)
+		default:
+			return errors.Wrapf(err, "looking for product %d", id)
+		}
 	}
 
-	if err := web.Respond(w, prod, http.StatusOK); err != nil {
-		p.Log.Println("error responding", err)
-		return
-	}
+	return web.Respond(w, prod, http.StatusOK)
 }
 
 // Create creates a product and sends the created product to the client
-func (p *Product) Create(w http.ResponseWriter, r *http.Request) {
+func (p *Product) Create(w http.ResponseWriter, r *http.Request) error {
 	var np product.NewProduct
+
 	if err := web.Decode(r, &np); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		p.Log.Println(err)
-		return
+		return err
 	}
 
 	prod, err := product.Create(p.DB, &np, time.Now())
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		p.Log.Println("error creating product", err)
-		return
+		return err
 	}
 
-	if err := web.Respond(w, prod, http.StatusCreated); err != nil {
-		p.Log.Println("error responding", err)
-		return
-	}
+	return web.Respond(w, prod, http.StatusCreated)
 }
