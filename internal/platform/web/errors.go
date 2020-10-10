@@ -1,14 +1,20 @@
 package web
 
-import "net/http"
+// FieldError is used to indicate an error with a specific request field.
+type FieldError struct {
+	Field string `json:"field"`
+	Error string `json:"error"`
+}
 
 type ErrorResponse struct {
-	Error string `json:"error"`
+	Error  string       `json:"error"`
+	Fields []FieldError `json:"fields,omitempty"`
 }
 
 type Error struct {
 	Err    error
 	Status int
+	Fields []FieldError
 }
 
 func (e *Error) Error() string {
@@ -18,22 +24,6 @@ func (e *Error) Error() string {
 // NewRequestError is used when a known error is encountered
 func NewRequestError(err error, status int) error {
 	return &Error{
-		Err:    err,
-		Status: status,
+		err, status, nil,
 	}
-}
-
-// RespondError knows how to handle errors going to the client
-func RespondError(w http.ResponseWriter, err error) error {
-	if webErr, ok := err.(*Error); ok {
-		res := ErrorResponse{
-			Error: webErr.Error(),
-		}
-		return Respond(w, res, webErr.Status)
-	}
-
-	res := ErrorResponse{
-		Error: http.StatusText(http.StatusInternalServerError),
-	}
-	return Respond(w, res, http.StatusInternalServerError)
 }
